@@ -25,6 +25,22 @@ import java.util.*;
 
 public class GraveManager {
 
+    /**
+     * Holds serialized player data for pending grave placement on respawn.
+     */
+    public static class PendingGraveData {
+        private final String serializedItems;
+        private final double xp;
+
+        public PendingGraveData(String serializedItems, double xp) {
+            this.serializedItems = serializedItems;
+            this.xp = xp;
+        }
+
+        public String getSerializedItems() { return serializedItems; }
+        public double getXp() { return xp; }
+    }
+
     private final SimpleGraves plugin;
 
     public final Executor dbWorker;
@@ -89,7 +105,75 @@ public class GraveManager {
         });
     }
 
+    // ------------------------------------------------------------ \\
+    //  Public Grave Creation API
+    // ------------------------------------------------------------ \\
+
+    /**
+     * Full grave creation: save player inventory, clear player, then
+     * insert into DB and place the gravestone block.
+     * Used when a safe location is found at death point.
+     */
     public void createGrave(Player player, Location loc) {
+        PendingGraveData data = savePlayerInventory(player);
+        clearPlayer(player);
+        insertGraveAndPlaceBlock(player, loc, data);
+    }
+
+    /**
+     * Create a grave from previously saved pending data.
+     * Used when placing at respawn point (inventory already saved/cleared).
+     */
+    public void createGraveFromPendingData(Player player, Location loc, PendingGraveData data) {
+        insertGraveAndPlaceBlock(player, loc, data);
+    }
+
+    /**
+     * Serialize the player's inventory and XP to a PendingGraveData object.
+     * Does NOT clear the player's inventory or XP.
+     */
+    public PendingGraveData savePlayerInventory(Player player) {
+        // Player's Items
+        String player_items = Arrays.asList(player.getInventory().getContents()).stream()
+                .filter(Objects::nonNull)
+                .filter(item -> !(delete_vanishing_items && item.getEnchantments().containsKey(Enchantment.VANISHING_CURSE)))
+                .map(item -> {
+                    try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                         BukkitObjectOutputStream oos = new BukkitObjectOutputStream(baos)) {
+                        oos.writeObject(item);
+                        return Base64.getEncoder().encodeToString(baos.toByteArray());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("|"));
+
+        // Player's XP
+        double player_xp = getTotalXP(player);
+        if (player_xp > xpLimit) {
+            player_xp = xpLimit;
+        }
+
+        return new PendingGraveData(player_items, player_xp);
+    }
+
+    /**
+     * Clear the player's inventory and XP.
+     */
+    public void clearPlayer(Player player) {
+        player.getInventory().clear();
+        player.setTotalExperience(0);
+        player.setLevel(0);
+        player.setExp(0);
+    }
+
+    // ------------------------------------------------------------ \\
+    //  Internal: Insert to DB + Place Block + Send Message
+    // ------------------------------------------------------------ \\
+
+    private void insertGraveAndPlaceBlock(Player player, Location loc, PendingGraveData data) {
         UUID uuid = player.getUniqueId();
         int graveNum = 1;
 
@@ -115,7 +199,7 @@ public class GraveManager {
 
             // Player's Dimension
             if (loc.getWorld() == null) {
-                player.sendMessage("§cFailed to create Grave!");
+                plugin.getMessageManager().sendMessage(player, "grave.failed_create");
                 plugin.getLogger().warning("Failed to create Grave for Player \"" + uuid + "\": Failed to determine Player's Dimension");
                 return;
             } else {
@@ -157,59 +241,18 @@ public class GraveManager {
             ps.setDouble(7, pitch);
             ps.setDouble(8, yaw);
 
-            // Player's Items
-            String player_items = Arrays.asList(player.getInventory().getContents()).stream()
-                    .filter(Objects::nonNull)
-                    .filter(item -> !(delete_vanishing_items && item.getEnchantments().containsKey(Enchantment.VANISHING_CURSE)))
-                    .map(item -> {
-                        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                             BukkitObjectOutputStream oos = new BukkitObjectOutputStream(baos)) {
-                            oos.writeObject(item);
-                            return Base64.getEncoder().encodeToString(baos.toByteArray());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.joining("|"));
-            ps.setString(9, player_items);
+            // Player's Items (from pending data)
+            ps.setString(9, data.getSerializedItems());
 
-            // Player's XP
-            double player_xp = getTotalXP(player);
-            if (player_xp > xpLimit) {
-                player_xp = xpLimit;
-            }
-            ps.setDouble(10, player_xp);
+            // Player's XP (from pending data)
+            ps.setDouble(10, data.getXp());
 
             ps.executeUpdate();
 
-            // Clear Inventory + XP
-            player.getInventory().clear();
-            player.setTotalExperience(0);
-            player.setLevel(0);
-            player.setExp(0);
+            // Send tellraw message
+            sendGraveLocationMessage(player, loc, graveNum);
 
             // Place Gravestone
-            String worldName;
-
-            switch (loc.getWorld().getName()) {
-                case "world":
-                    worldName = "{\"text\":\"The Overworld\",\"color\":\"green\"}";
-                    break;
-                case "world_nether":
-                    worldName = "{\"text\":\"The Nether\",\"color\":\"red\"}";
-                    break;
-                case "world_the_end":
-                    worldName = "{\"text\":\"The End\",\"color\":\"#ffffaa\"}";
-                    break;
-                default:
-                    worldName = "{\"text\":\"" + loc.getWorld().getName() + "\",\"color\":\"light_purple\"}";
-                    break;
-            }
-
-            plugin.executeConsoleCommand("tellraw " + player.getName() + " " + "[{\"text\":\"Your Grave \",\"color\":\"white\"},{\"text\":\"#" + graveNum + "\",\"color\":\"gold\"},{\"text\":\" is Located at \",\"color\":\"white\"},{\"text\":\"" + loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ() + "\",\"color\":\"gold\"},{\"text\":\" in \",\"color\":\"white\"}," + worldName + "]");
-
             Block block = loc.getBlock();
             block.setType(Material.PLAYER_HEAD);
             Rotatable rot = (Rotatable) block.getBlockData();
@@ -224,6 +267,37 @@ public class GraveManager {
             e.printStackTrace();
         }
     }
+
+    private void sendGraveLocationMessage(Player player, Location loc, int graveNum) {
+        String worldJson;
+        String worldName = loc.getWorld().getName();
+        MessageManager mm = plugin.getMessageManager();
+
+        switch (worldName) {
+            case "world":
+                worldJson = mm.getRawJson("grave.world_overworld");
+                break;
+            case "world_nether":
+                worldJson = mm.getRawJson("grave.world_nether");
+                break;
+            case "world_the_end":
+                worldJson = mm.getRawJson("grave.world_end");
+                break;
+            default:
+                worldJson = mm.getRawJson("grave.world_custom", "name", worldName);
+                break;
+        }
+
+        String coords = loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ();
+        mm.sendTellrawMessage(player, "grave.location_tellraw",
+                "number", String.valueOf(graveNum),
+                "coords", coords,
+                "world_json", worldJson);
+    }
+
+    // ------------------------------------------------------------ \\
+    //  Query Methods
+    // ------------------------------------------------------------ \\
 
     public CompletableFuture<Boolean> graveExistsUUID(UUID uuid, int graveNum) {
         return CompletableFuture.supplyAsync(() -> {
@@ -524,6 +598,10 @@ public class GraveManager {
         return null;
     }
 
+    // ------------------------------------------------------------ \\
+    //  Grave Removal Methods
+    // ------------------------------------------------------------ \\
+
     public void breakGrave(Location loc) {
         if (loc == null || loc.getWorld() == null) {
             return;
@@ -783,6 +861,10 @@ public class GraveManager {
         });
     }
 
+    // ------------------------------------------------------------ \\
+    //  XP Methods
+    // ------------------------------------------------------------ \\
+
     public void setMaxStordXP(int maxLevels) {
         if (maxLevels <= 16) {
             xpLimit = (maxLevels * maxLevels) + 6 * maxLevels;
@@ -804,6 +886,10 @@ public class GraveManager {
             return (int) Math.floor(4.5 * (XPlevel * XPlevel) - 162.5 * XPlevel + 2220);
         }
     }
+
+    // ------------------------------------------------------------ \\
+    //  Offline Player Methods
+    // ------------------------------------------------------------ \\
 
     public void saveOfflinePlayer(UUID uuid, String playerName) {
         CompletableFuture.runAsync(() -> {

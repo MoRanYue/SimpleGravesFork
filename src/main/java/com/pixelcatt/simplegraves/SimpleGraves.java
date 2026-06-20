@@ -2,7 +2,6 @@ package com.pixelcatt.simplegraves;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.IOException;
@@ -18,15 +17,21 @@ public class SimpleGraves extends JavaPlugin {
 
     private GraveManager manager;
     private DatabaseWorker dbWorker;
+    private MessageManager messageManager;
     private PlayerJoinListener playerJoinListener;
     private PlayerDeathListener playerDeathListener;
     private BlockBreakListener blockBreakListener;
     private GraveProtector graveProtector;
+    private PlayerRespawnListener playerRespawnListener;
 
 
     @Override
     public void onEnable() {
         getLogger().info("~ Created by PixelCatt ~");
+
+        // Initialize Message Manager
+        getLogger().info("Initializing Message Manager...");
+        messageManager = new MessageManager(this);
 
         // Initialize Database-Worker
         getLogger().info("Initializing Database-Worker...");
@@ -51,15 +56,6 @@ public class SimpleGraves extends JavaPlugin {
         // Check for Updates
         getLogger().info("Checking for Updates...");
         checkForUpdates();
-
-        // Enable Keep-Inventory on Server Load
-        BukkitRunnable onLoad = new BukkitRunnable() {
-            @Override
-            public void run() {
-                executeConsoleCommand("gamerule keep_inventory true");
-            }
-        };
-        onLoad.runTaskLater(this, 1L);
     }
 
 
@@ -72,6 +68,8 @@ public class SimpleGraves extends JavaPlugin {
         getServer().getPluginManager().registerEvents(blockBreakListener, this);
         graveProtector = new GraveProtector(this, this.manager);
         getServer().getPluginManager().registerEvents(graveProtector, this);
+        playerRespawnListener = new PlayerRespawnListener(this, this.manager, playerDeathListener.getPendingGraves());
+        getServer().getPluginManager().registerEvents(playerRespawnListener, this);
     }
 
     private void loadConfig() {
@@ -236,5 +234,13 @@ public class SimpleGraves extends JavaPlugin {
 
     public void executeConsoleCommand(String cmd) {
         getServer().dispatchCommand(getServer().getConsoleSender(), cmd);
+    }
+
+    public MessageManager getMessageManager() {
+        return messageManager;
+    }
+
+    public PlayerDeathListener getPlayerDeathListener() {
+        return playerDeathListener;
     }
 }

@@ -41,7 +41,7 @@ public class BlockBreakListener implements Listener {
                     if (manager.getGraveOwnerUUID(loc).equals(player.getUniqueId())) {
                         manager.breakGrave(loc);
                     } else {
-                        player.sendMessage("§cYou cannot break other Player's Graves!");
+                        plugin.getMessageManager().sendMessage(player, "block_break.cannot_break_others");
                         event.setCancelled(true);
                     }
                 }

@@ -9,20 +9,29 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+
+import com.pixelcatt.simplegraves.GraveManager.PendingGraveData;
 
 
 public class PlayerDeathListener implements Listener {
 
     private final SimpleGraves plugin;
     private final GraveManager manager;
+    private final Map<UUID, PendingGraveData> pendingGraves = new HashMap<>();
 
 
     public PlayerDeathListener(SimpleGraves plugin, GraveManager manager) {
         this.plugin = plugin;
         this.manager = manager;
+    }
+
+
+    /**
+     * Get the pending graves map, used by PlayerRespawnListener.
+     */
+    public Map<UUID, PendingGraveData> getPendingGraves() {
+        return pendingGraves;
     }
 
 
@@ -37,14 +46,31 @@ public class PlayerDeathListener implements Listener {
 
             Location graveLocation = getValidGraveLocation(player.getLocation());
             if (graveLocation == null) {
-                player.sendMessage("§aIt's your Lucky Day!");
-                player.sendMessage("§cSimpleGraves was unable to place your Grave!");
-                player.sendMessage("§aBecause of this, you can keep your Items!");
+                // No safe location at death point → save items for respawn placement
+                PendingGraveData data = manager.savePlayerInventory(player);
+                manager.clearPlayer(player);
+                pendingGraves.put(player.getUniqueId(), data);
+
+                // Cancel vanilla drops (keepInventory is no longer forced)
+                event.getDrops().clear();
+                event.setDroppedExp(0);
+
+                plugin.getMessageManager().sendMessage(player, "death.lucky_day");
+                plugin.getMessageManager().sendMessage(player, "death.no_safe_location");
+                plugin.getMessageManager().sendMessage(player, "death.grave_at_respawn");
             } else {
+                // Cancel vanilla drops (keepInventory is no longer forced)
+                event.getDrops().clear();
+                event.setDroppedExp(0);
+
                 manager.createGrave(player, graveLocation);
             }
         }
     }
+
+    // ------------------------------------------------------------ \\
+    //  Location Validation (public for reuse by PlayerRespawnListener)
+    // ------------------------------------------------------------ \\
 
     public Location getValidGraveLocation(Location graveLocation) {
         int baseX = graveLocation.getBlockX();
