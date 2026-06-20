@@ -2,6 +2,7 @@ package com.pixelcatt.simplegraves;
 
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -57,8 +58,11 @@ public class PlayerRespawnListener implements Listener {
                 manager.createGraveFromPendingData(player, safeLoc, data);
             } else {
                 // Respawn point is also unsafe → drop items on the ground as fallback
-                plugin.getMessageManager().sendMessage(player, "death.no_safe_location");
-                plugin.getMessageManager().sendMessage(player, "death.keep_items");
+                // Use runOnEntity because sendMessage must run on the player's entity thread
+                FoliaHelper.runOnEntity(plugin, player, () -> {
+                    plugin.getMessageManager().sendMessage(player, "death.no_safe_location");
+                    plugin.getMessageManager().sendMessage(player, "death.keep_items");
+                });
                 dropItemsOnGround(player, respawnLoc, data);
             }
         });
@@ -161,6 +165,12 @@ public class PlayerRespawnListener implements Listener {
 
         // Check if a grave already exists at this location
         if (manager.graveExistsLoc(block.getLocation())) {
+            return false;
+        }
+
+        // Check if the block below is solid (ground support for the head)
+        org.bukkit.block.Block below = block.getRelative(BlockFace.DOWN);
+        if (below.getType().isAir()) {
             return false;
         }
 

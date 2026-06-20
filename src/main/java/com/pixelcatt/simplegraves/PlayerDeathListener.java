@@ -4,12 +4,14 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.pixelcatt.simplegraves.GraveManager.PendingGraveData;
 
@@ -18,7 +20,7 @@ public class PlayerDeathListener implements Listener {
 
     private final SimpleGraves plugin;
     private final GraveManager manager;
-    private final Map<UUID, PendingGraveData> pendingGraves = new HashMap<>();
+    private final Map<UUID, PendingGraveData> pendingGraves = new ConcurrentHashMap<>();
 
 
     public PlayerDeathListener(SimpleGraves plugin, GraveManager manager) {
@@ -222,6 +224,12 @@ public class PlayerDeathListener implements Listener {
         ));
 
         if (UNSAFE_BLOCKS.contains(type) || manager.graveExistsLoc(block.getLocation())) return false;
+
+        // Check if the block below is solid (ground support for the head)
+        Block below = block.getRelative(BlockFace.DOWN);
+        if (below.getType().isAir()) {
+            return false;
+        }
 
         boolean isNearEndPortalFrame = false;
         for (int dx = -3; dx <= 3 && !isNearEndPortalFrame; dx++) {

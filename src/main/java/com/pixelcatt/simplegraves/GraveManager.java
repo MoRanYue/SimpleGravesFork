@@ -50,6 +50,7 @@ public class GraveManager {
 
     private int xpLimit = 910;
     private boolean delete_vanishing_items = false;
+    private String graveBlockName = "%player%'s Grave";
 
 
     public GraveManager(SimpleGraves plugin, DatabaseWorker dbWorker, DatabaseProvider databaseProvider) {
@@ -233,6 +234,11 @@ public class GraveManager {
 
             Skull skull = (Skull) block.getState();
             skull.setOwningPlayer(player);
+
+            // Set custom name from config (supports %player% placeholder)
+            String displayName = graveBlockName.replace("%player%", player.getName());
+            skull.customName(net.kyori.adventure.text.Component.text(displayName));
+
             skull.update();
 
         } catch (SQLException e) {
@@ -850,6 +856,10 @@ public class GraveManager {
     // ------------------------------------------------------------ \\
     //  XP Methods
     // ------------------------------------------------------------ \\
+
+    public void setGraveBlockName(String graveBlockName) {
+        this.graveBlockName = graveBlockName;
+    }
 
     public void setMaxStordXP(int maxLevels) {
         if (maxLevels <= 16) {

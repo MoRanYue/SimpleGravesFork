@@ -151,6 +151,11 @@ public class SimpleGraves extends JavaPlugin {
         }
         config.set("non-grave-player-head-water-protection", nonGravePlayerHeadWaterProtection);
 
+        // Grave Block Name
+        String graveBlockName = config.getString("grave-block-name", "%player%'s Grave");
+        manager.setGraveBlockName(graveBlockName);
+        config.set("grave-block-name", graveBlockName);
+
         if ("1.0.0".equals(configVersion) || isNewerVersion(configVersion, "1.0.0")) {
             if (isOlderVersion(configVersion, currentVersion)) {
                 getLogger().info("Configuration Update: \"config-version\" has been updated to \"" + currentVersion + "\".");

@@ -20,6 +20,10 @@ delete-vanishing-items: false
 # Must be true or false
 non-grave-player-head-water-protection: true
 
+# Custom Name for the Grave Block (Default: "%player%'s Grave")
+# Use %player% as a placeholder for the Player Name
+grave-block-name: "%player%'s Grave"
+
 
 # Database Settings
 # Supported database types: sqlite, postgresql

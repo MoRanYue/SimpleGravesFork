@@ -11,7 +11,7 @@ public class PlayerJoinListener implements Listener {
     private final SimpleGraves plugin;
     private final GraveManager manager;
 
-    private boolean sendUpdateNotification = false;
+    private volatile boolean sendUpdateNotification = false;
 
 
     public PlayerJoinListener(SimpleGraves plugin, GraveManager manager) {
