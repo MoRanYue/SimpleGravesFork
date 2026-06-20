@@ -46,16 +46,22 @@ public class PlayerRespawnListener implements Listener {
 
         // Try to place the grave at the respawn location
         Location respawnLoc = event.getRespawnLocation();
-        Location safeLoc = findSafeGraveLocation(respawnLoc);
 
-        if (safeLoc != null) {
-            manager.createGraveFromPendingData(player, safeLoc, data);
-        } else {
-            // Respawn point is also unsafe → drop items on the ground as fallback
-            plugin.getMessageManager().sendMessage(player, "death.no_safe_location");
-            plugin.getMessageManager().sendMessage(player, "death.keep_items");
-            dropItemsOnGround(player, respawnLoc, data);
-        }
+        // In Folia, the respawn location might be in a different region than the
+        // player's current thread. Schedule the grave placement on the respawn
+        // location's region to be safe.
+        FoliaHelper.runAtLocation(plugin, respawnLoc, () -> {
+            Location safeLoc = findSafeGraveLocation(respawnLoc);
+
+            if (safeLoc != null) {
+                manager.createGraveFromPendingData(player, safeLoc, data);
+            } else {
+                // Respawn point is also unsafe → drop items on the ground as fallback
+                plugin.getMessageManager().sendMessage(player, "death.no_safe_location");
+                plugin.getMessageManager().sendMessage(player, "death.keep_items");
+                dropItemsOnGround(player, respawnLoc, data);
+            }
+        });
     }
 
 

@@ -29,6 +29,13 @@ public class SimpleGraves extends JavaPlugin {
     public void onEnable() {
         getLogger().info("~ Created by PixelCatt ~");
 
+        // Detect Folia
+        if (FoliaHelper.isFolia()) {
+            getLogger().info("Folia detected — using regionized scheduler API");
+        } else {
+            getLogger().info("Standard server detected — using legacy scheduler API");
+        }
+
         // Initialize Message Manager
         getLogger().info("Initializing Message Manager...");
         messageManager = new MessageManager(this);
@@ -233,7 +240,7 @@ public class SimpleGraves extends JavaPlugin {
 
 
     public void executeConsoleCommand(String cmd) {
-        getServer().dispatchCommand(getServer().getConsoleSender(), cmd);
+        FoliaHelper.executeConsoleCommand(this, cmd);
     }
 
     public MessageManager getMessageManager() {

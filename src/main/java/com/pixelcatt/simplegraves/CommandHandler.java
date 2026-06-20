@@ -94,7 +94,7 @@ public class CommandHandler implements CommandExecutor {
         final int finalGraveNumber = graveNumber;
         manager.graveExistsUUID(targetUUID, graveNumber).thenAccept(exists -> {
             if (!exists) {
-                Bukkit.getScheduler().runTask(plugin, () ->
+                FoliaHelper.runOnEntity(plugin, player, () ->
                         plugin.getMessageManager().sendMessage(player, "cmd.no_grave_with_number",
                                 "number", String.valueOf(finalGraveNumber))
                 );
@@ -103,7 +103,7 @@ public class CommandHandler implements CommandExecutor {
 
             manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
                 if (location == null || location.getWorld() == null) {
-                    Bukkit.getScheduler().runTask(plugin, () ->
+                    FoliaHelper.runOnEntity(plugin, player, () ->
                             plugin.getMessageManager().sendMessage(player, "cmd.failed_grave_location")
                     );
                     return;
@@ -122,7 +122,7 @@ public class CommandHandler implements CommandExecutor {
                 String yStr = String.valueOf(Math.floor(location.getY()));
                 String zStr = String.valueOf(Math.floor(location.getZ()));
 
-                Bukkit.getScheduler().runTask(plugin, () ->
+                FoliaHelper.runOnEntity(plugin, player, () ->
                         plugin.getMessageManager().sendMessage(player, "cmd.grave_info",
                                 "number", graveNumStr,
                                 "world", worldName,
@@ -150,7 +150,7 @@ public class CommandHandler implements CommandExecutor {
         final int finalGraveNumber = graveNumber;
         manager.graveExistsUUID(targetUUID, graveNumber).thenAccept(exists -> {
             if (!exists) {
-                Bukkit.getScheduler().runTask(plugin, () ->
+                FoliaHelper.runOnEntity(plugin, player, () ->
                         plugin.getMessageManager().sendMessage(player, "cmd.no_grave_with_number",
                                 "number", String.valueOf(finalGraveNumber))
                 );
@@ -168,7 +168,7 @@ public class CommandHandler implements CommandExecutor {
                     }
 
                     if (graveItems.isEmpty()) {
-                        Bukkit.getScheduler().runTask(plugin, () ->
+                        FoliaHelper.runOnEntity(plugin, player, () ->
                                 plugin.getMessageManager().sendMessage(player, "cmd.grave_no_items",
                                         "number", String.valueOf(finalGraveNumber))
                         );
@@ -184,7 +184,7 @@ public class CommandHandler implements CommandExecutor {
                         itemsMessage.append(entry.getKey()).append(" (x").append(entry.getValue()).append(")");
                     }
 
-                    Bukkit.getScheduler().runTask(plugin, () -> {
+                    FoliaHelper.runOnEntity(plugin, player, () -> {
                         plugin.getMessageManager().sendMessage(player, "cmd.grave_items_header",
                                 "number", String.valueOf(finalGraveNumber));
                         player.sendMessage(itemsMessage.toString());
@@ -248,7 +248,7 @@ public class CommandHandler implements CommandExecutor {
 
             if (numberStrFinal.equals("*")) {
                 manager.removeEveryGrave();
-                Bukkit.getScheduler().runTask(plugin, () ->
+                FoliaHelper.runOnEntity(plugin, sender, () ->
                         plugin.getMessageManager().sendMessage(sender, "cmd.removed_all_graves_all"));
             } else {
                 int graveNumber;
@@ -260,7 +260,7 @@ public class CommandHandler implements CommandExecutor {
                 }
                 final int finalGraveNumber = graveNumber;
                 manager.removeAllGravesWithNumber(finalGraveNumber);
-                Bukkit.getScheduler().runTask(plugin, () ->
+                FoliaHelper.runOnEntity(plugin, sender, () ->
                         plugin.getMessageManager().sendMessage(sender, "cmd.removed_all_graves_number",
                                 "number", String.valueOf(finalGraveNumber)));
             }
@@ -286,7 +286,7 @@ public class CommandHandler implements CommandExecutor {
                 case "go":
                     manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
                         if (!exists) {
-                            Bukkit.getScheduler().runTask(plugin, () ->
+                            FoliaHelper.runOnEntity(plugin, sender, () ->
                                     plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                             "player", targetNameFinal,
                                             "number", String.valueOf(finalGraveNumber)));
@@ -294,14 +294,14 @@ public class CommandHandler implements CommandExecutor {
                         }
                         manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
                             if (location != null) {
-                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                FoliaHelper.runOnEntity(plugin, sender, () -> {
                                     sender.teleport(location);
                                     plugin.getMessageManager().sendMessage(sender, "cmd.teleported_to_grave",
                                             "player", targetNameFinal,
                                             "number", String.valueOf(finalGraveNumber));
                                 });
                             } else {
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.failed_grave_location_other"));
                             }
                         });
@@ -309,7 +309,7 @@ public class CommandHandler implements CommandExecutor {
                     break;
                 case "list":
                     manager.getGraveNumberListAsync(targetUUID).thenAccept(graveList -> {
-                        Bukkit.getScheduler().runTask(plugin, () -> {
+                        FoliaHelper.runOnEntity(plugin, sender, () -> {
                             if (graveList.isEmpty()) {
                                 plugin.getMessageManager().sendMessage(sender, "cmd.no_graves_player",
                                         "player", targetNameFinal);
@@ -324,7 +324,7 @@ public class CommandHandler implements CommandExecutor {
                 case "info":
                     manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
                         if (!exists) {
-                            Bukkit.getScheduler().runTask(plugin, () ->
+                            FoliaHelper.runOnEntity(plugin, sender, () ->
                                     plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                             "player", targetNameFinal,
                                             "number", String.valueOf(finalGraveNumber)));
@@ -332,7 +332,7 @@ public class CommandHandler implements CommandExecutor {
                         }
                         manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
                             if (location == null || location.getWorld() == null) {
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.failed_grave_location_other"));
                                 return;
                             }
@@ -347,7 +347,7 @@ public class CommandHandler implements CommandExecutor {
                             String xStr = String.valueOf(Math.floor(location.getX()));
                             String yStr = String.valueOf(Math.floor(location.getY()));
                             String zStr = String.valueOf(Math.floor(location.getZ()));
-                            Bukkit.getScheduler().runTask(plugin, () ->
+                            FoliaHelper.runOnEntity(plugin, sender, () ->
                                     plugin.getMessageManager().sendMessage(sender, "cmd.grave_info",
                                             "number", graveNumStr,
                                             "world", worldName,
@@ -360,7 +360,7 @@ public class CommandHandler implements CommandExecutor {
                 case "items":
                     manager.graveExistsUUID(targetUUID, graveNumber).thenAccept(exists -> {
                         if (!exists) {
-                            Bukkit.getScheduler().runTask(plugin, () ->
+                            FoliaHelper.runOnEntity(plugin, sender, () ->
                                     plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                             "player", targetNameFinal,
                                             "number", String.valueOf(finalGraveNumber))
@@ -379,7 +379,7 @@ public class CommandHandler implements CommandExecutor {
                                 }
 
                                 if (graveItems.isEmpty()) {
-                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                    FoliaHelper.runOnEntity(plugin, sender, () ->
                                             plugin.getMessageManager().sendMessage(sender, "cmd.grave_no_items",
                                                     "number", String.valueOf(finalGraveNumber))
                                     );
@@ -395,7 +395,7 @@ public class CommandHandler implements CommandExecutor {
                                     itemsMessage.append(entry.getKey()).append(" (x").append(entry.getValue()).append(")");
                                 }
 
-                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                FoliaHelper.runOnEntity(plugin, sender, () -> {
                                     plugin.getMessageManager().sendMessage(sender, "cmd.grave_items_header",
                                             "number", String.valueOf(finalGraveNumber));
                                     sender.sendMessage(itemsMessage.toString());
@@ -407,20 +407,20 @@ public class CommandHandler implements CommandExecutor {
                 case "remove":
                     if (numberStrFinal.equals("*")) {
                         manager.removeAllGraves(targetUUID);
-                        Bukkit.getScheduler().runTask(plugin, () ->
+                        FoliaHelper.runOnEntity(plugin, sender, () ->
                                 plugin.getMessageManager().sendMessage(sender, "cmd.removed_all_graves_player",
                                         "player", targetNameFinal));
                     } else {
                         manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
                             if (!exists) {
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                                 "player", targetNameFinal,
                                                 "number", String.valueOf(finalGraveNumber)));
                                 return;
                             }
                             manager.removeGrave(targetUUID, finalGraveNumber, false);
-                            Bukkit.getScheduler().runTask(plugin, () ->
+                            FoliaHelper.runOnEntity(plugin, sender, () ->
                                     plugin.getMessageManager().sendMessage(sender, "cmd.removed_grave_player",
                                             "player", targetNameFinal,
                                             "number", String.valueOf(finalGraveNumber)));
@@ -435,7 +435,7 @@ public class CommandHandler implements CommandExecutor {
         manager.getOfflinePlayerUUIDAsync(targetNameFinal).thenAccept(uuid -> {
             manager.getOfflinePlayerName(uuid).thenAccept(name -> {
                 if (uuid == null) {
-                    Bukkit.getScheduler().runTask(plugin, () ->
+                    FoliaHelper.runOnEntity(plugin, sender, () ->
                             plugin.getMessageManager().sendMessage(sender, "cmd.player_not_found",
                                     "player", targetNameFinal));
                     return;
@@ -448,7 +448,7 @@ public class CommandHandler implements CommandExecutor {
                     try {
                         graveNumber = Integer.parseInt(numberStrFinal);
                     } catch (NumberFormatException e) {
-                        Bukkit.getScheduler().runTask(plugin, () ->
+                        FoliaHelper.runOnEntity(plugin, sender, () ->
                                 plugin.getMessageManager().sendMessage(sender, "cmd.grave_must_be_number"));
                         return;
                     }
@@ -459,7 +459,7 @@ public class CommandHandler implements CommandExecutor {
                     case "go":
                         manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
                             if (!exists) {
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                                 "player", targetName,
                                                 "number", String.valueOf(finalGraveNumber)));
@@ -467,14 +467,14 @@ public class CommandHandler implements CommandExecutor {
                             }
                             manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
                                 if (location != null) {
-                                    Bukkit.getScheduler().runTask(plugin, () -> {
+                                    FoliaHelper.runOnEntity(plugin, sender, () -> {
                                         sender.teleport(location);
                                         plugin.getMessageManager().sendMessage(sender, "cmd.teleported_to_grave",
                                                 "player", targetName,
                                                 "number", String.valueOf(finalGraveNumber));
                                     });
                                 } else {
-                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                    FoliaHelper.runOnEntity(plugin, sender, () ->
                                             plugin.getMessageManager().sendMessage(sender, "cmd.failed_grave_location_other"));
                                 }
                             });
@@ -482,7 +482,7 @@ public class CommandHandler implements CommandExecutor {
                         break;
                     case "list":
                         manager.getGraveNumberListAsync(targetUUID).thenAccept(graveList -> {
-                            Bukkit.getScheduler().runTask(plugin, () -> {
+                            FoliaHelper.runOnEntity(plugin, sender, () -> {
                                 if (graveList.isEmpty()) {
                                     plugin.getMessageManager().sendMessage(sender, "cmd.no_graves_player",
                                             "player", targetName);
@@ -497,7 +497,7 @@ public class CommandHandler implements CommandExecutor {
                     case "info":
                         manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
                             if (!exists) {
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                                 "player", targetName,
                                                 "number", String.valueOf(finalGraveNumber)));
@@ -505,7 +505,7 @@ public class CommandHandler implements CommandExecutor {
                             }
                             manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
                                 if (location == null || location.getWorld() == null) {
-                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                    FoliaHelper.runOnEntity(plugin, sender, () ->
                                             plugin.getMessageManager().sendMessage(sender, "cmd.failed_grave_location_other"));
                                     return;
                                 }
@@ -520,7 +520,7 @@ public class CommandHandler implements CommandExecutor {
                                 String xStr = String.valueOf(Math.floor(location.getX()));
                                 String yStr = String.valueOf(Math.floor(location.getY()));
                                 String zStr = String.valueOf(Math.floor(location.getZ()));
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.grave_info",
                                                 "number", graveNumStr,
                                                 "world", worldName,
@@ -533,7 +533,7 @@ public class CommandHandler implements CommandExecutor {
                     case "items":
                         manager.graveExistsUUID(targetUUID, graveNumber).thenAccept(exists -> {
                             if (!exists) {
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                                 "player", targetName,
                                                 "number", String.valueOf(finalGraveNumber))
@@ -552,7 +552,7 @@ public class CommandHandler implements CommandExecutor {
                                     }
 
                                     if (graveItems.isEmpty()) {
-                                        Bukkit.getScheduler().runTask(plugin, () ->
+                                        FoliaHelper.runOnEntity(plugin, sender, () ->
                                                 plugin.getMessageManager().sendMessage(sender, "cmd.grave_no_items",
                                                         "number", String.valueOf(finalGraveNumber))
                                         );
@@ -568,7 +568,7 @@ public class CommandHandler implements CommandExecutor {
                                         itemsMessage.append(entry.getKey()).append(" (x").append(entry.getValue()).append(")");
                                     }
 
-                                    Bukkit.getScheduler().runTask(plugin, () -> {
+                                    FoliaHelper.runOnEntity(plugin, sender, () -> {
                                         plugin.getMessageManager().sendMessage(sender, "cmd.grave_items_header",
                                                 "number", String.valueOf(finalGraveNumber));
                                         sender.sendMessage(itemsMessage.toString());
@@ -580,20 +580,20 @@ public class CommandHandler implements CommandExecutor {
                     case "remove":
                         if (numberStrFinal.equals("*")) {
                             manager.removeAllGraves(targetUUID);
-                            Bukkit.getScheduler().runTask(plugin, () ->
+                            FoliaHelper.runOnEntity(plugin, sender, () ->
                                     plugin.getMessageManager().sendMessage(sender, "cmd.removed_all_graves_player",
                                             "player", targetName));
                         } else {
                             manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
                                 if (!exists) {
-                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                    FoliaHelper.runOnEntity(plugin, sender, () ->
                                             plugin.getMessageManager().sendMessage(sender, "cmd.no_grave_other",
                                                     "player", targetName,
                                                     "number", String.valueOf(finalGraveNumber)));
                                     return;
                                 }
                                 manager.removeGrave(targetUUID, finalGraveNumber, false);
-                                Bukkit.getScheduler().runTask(plugin, () ->
+                                FoliaHelper.runOnEntity(plugin, sender, () ->
                                         plugin.getMessageManager().sendMessage(sender, "cmd.removed_grave_player",
                                                 "player", targetName,
                                                 "number", String.valueOf(finalGraveNumber)));

@@ -23,6 +23,8 @@ import java.sql.*;
 import java.util.*;
 
 
+
+
 public class GraveManager {
 
     /**
@@ -386,7 +388,7 @@ public class GraveManager {
                 e.printStackTrace();
             }
 
-            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveNumberList));
+            FoliaHelper.runGlobal(plugin, () -> future.complete(graveNumberList));
         });
 
         return future;
@@ -421,7 +423,7 @@ public class GraveManager {
             }
 
             Location result = graveLocation;
-            Bukkit.getScheduler().runTask(plugin, () -> future.complete(result));
+            FoliaHelper.runGlobal(plugin, () -> future.complete(result));
         });
 
         return future;
@@ -455,7 +457,7 @@ public class GraveManager {
                 e.printStackTrace();
             }
 
-            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveLocations));
+            FoliaHelper.runGlobal(plugin, () -> future.complete(graveLocations));
         });
 
         return future;
@@ -489,7 +491,7 @@ public class GraveManager {
                 e.printStackTrace();
             }
 
-            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveLocations));
+            FoliaHelper.runGlobal(plugin, () -> future.complete(graveLocations));
         });
 
         return future;
@@ -521,7 +523,7 @@ public class GraveManager {
                 e.printStackTrace();
             }
 
-            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveLocations));
+            FoliaHelper.runGlobal(plugin, () -> future.complete(graveLocations));
         });
 
         return future;
@@ -630,7 +632,7 @@ public class GraveManager {
                 final int graveNum = rs.getInt("grave_num");
                 final double xpAmount = rs.getDouble("xp");
 
-                Bukkit.getScheduler().runTask(plugin, () -> {
+                FoliaHelper.runAtLocation(plugin, new Location(Bukkit.getWorld(worldName), x, y, z), () -> {
                     World world = Bukkit.getWorld(worldName);
                     Location dropLoc = new Location(world, x, y, z);
 
@@ -710,7 +712,7 @@ public class GraveManager {
                     world.loadChunk(chunk);
                 }
 
-                Bukkit.getScheduler().runTask(plugin, () -> {
+                FoliaHelper.runAtLocation(plugin, graveLocation, () -> {
                     Block graveBlock = graveLocation.getBlock();
                     if (graveBlock.getType() != Material.AIR) {
                         graveBlock.setType(Material.AIR);
@@ -743,7 +745,7 @@ public class GraveManager {
         getAllGraveLocations(uuid).thenAccept(graveLocations -> {
             if (graveLocations.isEmpty()) return;
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            FoliaHelper.runGlobal(plugin, () -> {
                 for (Location graveLocation : graveLocations) {
                     if (graveLocation == null) continue;
 
@@ -784,7 +786,7 @@ public class GraveManager {
         getAllGraveLocationsWithNumber(graveNum).thenAccept(graveLocations -> {
             if (graveLocations.isEmpty()) return;
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            FoliaHelper.runGlobal(plugin, () -> {
                 for (Location graveLocation : graveLocations) {
                     if (graveLocation == null) continue;
 
@@ -825,7 +827,7 @@ public class GraveManager {
         getEveryGraveLocation().thenAccept(graveLocations -> {
             if (graveLocations.isEmpty()) return;
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            FoliaHelper.runGlobal(plugin, () -> {
                 for (Location graveLocation : graveLocations) {
                     if (graveLocation == null) continue;
 
