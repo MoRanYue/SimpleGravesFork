@@ -26,11 +26,14 @@ public class SQLiteDatabaseProvider implements DatabaseProvider {
         }
         File dbFile = new File(plugin.getDataFolder(), "graves.db");
 
+        // Register the JDBC driver explicitly so HikariCP can find it
+        // (Bukkit's PluginClassLoader doesn't participate in DriverManager's
+        //  service-provider loading mechanism)
+        Class.forName("org.sqlite.JDBC");
+
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl("jdbc:sqlite:" + dbFile.getAbsolutePath());
         config.setMaximumPoolSize(1);
-        config.setDriverClassName("org.sqlite.JDBC");
-        config.setConnectionTestQuery("SELECT 1");
 
         dataSource = new HikariDataSource(config);
         plugin.getLogger().info("SQLite database opened: " + dbFile.getAbsolutePath());

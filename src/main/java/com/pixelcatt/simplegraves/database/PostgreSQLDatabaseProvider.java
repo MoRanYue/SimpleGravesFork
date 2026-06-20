@@ -29,6 +29,13 @@ public class PostgreSQLDatabaseProvider implements DatabaseProvider {
         int minIdle = plugin.getConfig().getInt("postgresql.pool-settings.minimum-idle", 2);
         int connTimeout = plugin.getConfig().getInt("postgresql.pool-settings.connection-timeout", 5000);
 
+        // Register the PostgreSQL JDBC driver explicitly using its relocated
+        // class name (see pom.xml shade plugin relocations).
+        // HikariCP relies on DriverManager which uses the system classloader
+        // and cannot discover drivers inside Bukkit's PluginClassLoader
+        // via the standard ServiceLoader mechanism.
+        Class.forName("com.pixelcatt.libs.postgresql.Driver");
+
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl("jdbc:postgresql://" + host + ":" + port + "/" + database);
         config.setUsername(username);
@@ -38,7 +45,6 @@ public class PostgreSQLDatabaseProvider implements DatabaseProvider {
         config.setConnectionTimeout(connTimeout);
         config.setIdleTimeout(300_000);
         config.setMaxLifetime(600_000);
-        config.setDriverClassName("org.postgresql.Driver");
 
         // Connection testing
         config.setConnectionTestQuery("SELECT 1");

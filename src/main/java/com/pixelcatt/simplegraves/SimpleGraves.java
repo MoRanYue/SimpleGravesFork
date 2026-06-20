@@ -124,7 +124,8 @@ public class SimpleGraves extends JavaPlugin {
         String configVersion = getConfig().getString("config-version", "1.0.0");
         String currentVersion = getDescription().getVersion();
 
-        saveResource("config.yml", true);
+        // Create default config only if it doesn't exist (false = never overwrite)
+        saveResource("config.yml", false);
         reloadConfig();
         FileConfiguration config = getConfig();
 

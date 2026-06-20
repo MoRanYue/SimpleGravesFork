@@ -102,6 +102,27 @@
                                     <shadedPattern>com.pixelcatt.libs.hikari</shadedPattern>
                                 </relocation>
                             </relocations>
+                            <filters>
+                                <!-- Keep all JDBC driver classes loaded via ServiceLoader/reflection -->
+                                <filter>
+                                    <artifact>org.xerial:sqlite-jdbc</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.postgresql:postgresql</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.zaxxer:HikariCP</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
                             <transformers>
                                 <!-- Merge SPI service files (required for JDBC drivers + HikariCP) -->
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
