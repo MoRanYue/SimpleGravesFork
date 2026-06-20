@@ -62,6 +62,28 @@ public final class FoliaHelper {
         }
     }
 
+    /**
+     * Schedule a task to run after a delay (in ticks) on the global scheduler.
+     */
+    public static void runGlobalLater(Plugin plugin, Runnable task, long delayTicks) {
+        if (FOLIA) {
+            Bukkit.getGlobalRegionScheduler().runDelayed(plugin, scheduledTask -> task.run(), delayTicks);
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
+        }
+    }
+
+    /**
+     * Schedule a repeating task on the global scheduler.
+     */
+    public static void runGlobalTimer(Plugin plugin, Runnable task, long delayTicks, long periodTicks) {
+        if (FOLIA) {
+            Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, scheduledTask -> task.run(), delayTicks, periodTicks);
+        } else {
+            Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks);
+        }
+    }
+
     // ------------------------------------------------------------
     //  Entity scheduler  (player / entity bound)
     // ------------------------------------------------------------

@@ -669,6 +669,10 @@ public class GraveManager {
                     }
                 });
 
+                // Remove highlight glow stand if active
+                plugin.getGraveHighlightManager().removeGlowAt(
+                        new Location(Bukkit.getWorld(worldName), x, y, z));
+
                 // Remove Grave from Database
                 try (PreparedStatement delete = conn.prepareStatement(
                         "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
