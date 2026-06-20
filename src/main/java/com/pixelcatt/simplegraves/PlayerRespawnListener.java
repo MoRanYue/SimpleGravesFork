@@ -73,7 +73,7 @@ public class PlayerRespawnListener implements Listener {
     //  Fallback: Drop items from pending data on the ground
     // ------------------------------------------------------------ \\
 
-    private void dropItemsOnGround(Player player, Location location, PendingGraveData data) {
+    public void dropItemsOnGround(Player player, Location location, PendingGraveData data) {
         World world = location.getWorld();
         if (world == null) return;
 

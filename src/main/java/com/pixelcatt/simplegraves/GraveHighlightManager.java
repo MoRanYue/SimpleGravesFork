@@ -3,8 +3,9 @@ package com.pixelcatt.simplegraves;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Shulker;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,7 +28,7 @@ public class GraveHighlightManager {
     private int range = 10;
 
     // -- runtime state --
-    private final Map<Location, ArmorStand> activeStands = new ConcurrentHashMap<>();
+    private final Map<Location, Entity> activeStands = new ConcurrentHashMap<>();
     private final Map<UUID, List<Location>> graveCache = new ConcurrentHashMap<>();
     private long lastCacheRefresh = 0L;
     private static final long CACHE_TTL_MS = 300_000L; // 5 minutes
@@ -60,9 +61,9 @@ public class GraveHighlightManager {
      * Remove all active glow stands (called on plugin disable).
      */
     public void shutdown() {
-        for (ArmorStand stand : activeStands.values()) {
-            if (stand.isValid()) {
-                stand.remove();
+        for (Entity entity : activeStands.values()) {
+            if (entity.isValid()) {
+                entity.remove();
             }
         }
         activeStands.clear();
@@ -73,9 +74,9 @@ public class GraveHighlightManager {
      * Remove the glow stand at a specific location (called when a grave is broken).
      */
     public void removeGlowAt(Location loc) {
-        ArmorStand stand = activeStands.remove(normalize(loc));
-        if (stand != null && stand.isValid()) {
-            stand.remove();
+        Entity entity = activeStands.remove(normalize(loc));
+        if (entity != null && entity.isValid()) {
+            entity.remove();
         }
     }
 
@@ -111,14 +112,14 @@ public class GraveHighlightManager {
             }
         }
 
-        // Despawn stands no longer in range
-        Iterator<Map.Entry<Location, ArmorStand>> it = activeStands.entrySet().iterator();
+        // Despawn glowing entities no longer in range
+        Iterator<Map.Entry<Location, Entity>> it = activeStands.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<Location, ArmorStand> entry = it.next();
+            Map.Entry<Location, Entity> entry = it.next();
             if (!inRange.contains(entry.getKey())) {
-                ArmorStand stand = entry.getValue();
-                if (stand.isValid()) {
-                    stand.remove();
+                Entity entity = entry.getValue();
+                if (entity.isValid()) {
+                    entity.remove();
                 }
                 it.remove();
             }
@@ -136,24 +137,24 @@ public class GraveHighlightManager {
             Location key = normalize(graveLoc);
             if (activeStands.containsKey(key)) return;
 
-            // Place the armor stand at the center of the head block
             // graveLoc is already at block center (X.5, Y.5, Z.5)
             World world = graveLoc.getWorld();
             if (world == null) return;
 
-            ArmorStand stand = world.spawn(graveLoc, ArmorStand.class, as -> {
-                as.setInvisible(true);
-                as.setGlowing(true);
-                as.setSmall(true);          // compact hitbox ≈ 1 block tall
-                as.setGravity(false);
-                as.setSilent(true);
-                as.setInvulnerable(true);
-                as.setPersistent(false);
-                as.setCollidable(false);    // no push interaction
-                as.setCanPickupItems(false);
+            // Use a no-AI Shulker for the glowing outline — its closed hitbox
+            // is exactly 1×1×1, so the glow outline perfectly wraps the head block.
+            Shulker shulker = world.spawn(graveLoc, Shulker.class, sh -> {
+                sh.setInvisible(true);
+                sh.setGlowing(true);
+                sh.setAI(false);
+                sh.setGravity(false);
+                sh.setSilent(true);
+                sh.setInvulnerable(true);
+                sh.setPersistent(false);
+                sh.setCollidable(false);
             });
 
-            activeStands.put(key, stand);
+            activeStands.put(key, shulker);
         });
     }
 
