@@ -1,5 +1,7 @@
 package com.pixelcatt.simplegraves;
 
+import com.pixelcatt.simplegraves.database.DatabaseProvider;
+
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.Material;
@@ -18,10 +20,8 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
-import java.io.File;
 import java.sql.*;
 import java.util.*;
-
 
 
 
@@ -44,64 +44,33 @@ public class GraveManager {
     }
 
     private final SimpleGraves plugin;
+    private final DatabaseProvider databaseProvider;
 
     public final Executor dbWorker;
-
-    private final File dbFile;
-    private Connection connection;
 
     private int xpLimit = 910;
     private boolean delete_vanishing_items = false;
 
 
-    public GraveManager(SimpleGraves plugin, DatabaseWorker dbWorker) {
+    public GraveManager(SimpleGraves plugin, DatabaseWorker dbWorker, DatabaseProvider databaseProvider) {
         this.plugin = plugin;
+        this.databaseProvider = databaseProvider;
 
         this.dbWorker = query -> dbWorker.getDatabaseExecutor().execute(query);
-        this.dbFile = new File(plugin.getDataFolder(), "graves.db");
-        openConnection();
         createTables();
     }
 
 
-    private void openConnection() {
-        dbWorker.execute(() -> {
-            try {
-                if (!plugin.getDataFolder().exists()) {
-                    plugin.getDataFolder().mkdirs();
-                }
-                Class.forName("org.sqlite.JDBC");
-                connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
-            } catch (Exception e) {
-                plugin.getLogger().severe("Could not connect to SQLite database!");
-                e.printStackTrace();
-            }
-        });
-    }
-
     private void createTables() {
         dbWorker.execute(() -> {
-            try (Statement stmt = connection.createStatement()) {
-                // Graves Table
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS graves (" +
-                        "uuid TEXT NOT NULL," +
-                        "grave_num INT NOT NULL," +
-                        "world TEXT NOT NULL," +
-                        "x DOUBLE NOT NULL," +
-                        "y DOUBLE NOT NULL," +
-                        "z DOUBLE NOT NULL," +
-                        "pitch DOUBLE NOT NULL," +
-                        "yaw DOUBLE NOT NULL," +
-                        "items TEXT NOT NULL," +
-                        "xp DOUBLE NOT NULL)");
+            try (Connection conn = databaseProvider.getConnection();
+                 Statement stmt = conn.createStatement()) {
 
-                // Offline-Players Table
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS offline_players (" +
-                        "uuid TEXT NOT NULL," +
-                        "plr_name TEXT NOT NULL UNIQUE," +
-                        "PRIMARY KEY(uuid))");
+                stmt.executeUpdate(databaseProvider.getCreateGravesTableSQL());
+                stmt.executeUpdate(databaseProvider.getCreateOfflinePlayersTableSQL());
+
             } catch (SQLException e) {
-                plugin.getLogger().severe("Failed to create tables in SQLite database.");
+                plugin.getLogger().severe("Failed to create database tables.");
                 e.printStackTrace();
             }
         });
@@ -180,14 +149,15 @@ public class GraveManager {
         int graveNum = 1;
 
         // Save Grave in the Database
-        try (PreparedStatement ps = connection.prepareStatement(
+        try (Connection conn = databaseProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
                 "INSERT INTO graves(uuid, grave_num, world, x, y, z, pitch, yaw, items, xp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
 
             // Player's UUID
             ps.setString(1, uuid.toString());
 
             // Grave Number
-            try (PreparedStatement checkGraveNum = connection.prepareStatement(
+            try (PreparedStatement checkGraveNum = conn.prepareStatement(
                     "SELECT COALESCE(MAX(grave_num), 0) FROM graves WHERE uuid = ?")) {
                 checkGraveNum.setString(1, uuid.toString());
 
@@ -303,7 +273,8 @@ public class GraveManager {
 
     public CompletableFuture<Boolean> graveExistsUUID(UUID uuid, int graveNum) {
         return CompletableFuture.supplyAsync(() -> {
-            try (PreparedStatement ps = connection.prepareStatement(
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
                     "SELECT 1 FROM graves WHERE uuid = ? AND grave_num = ?")) {
 
                 ps.setString(1, uuid.toString());
@@ -322,8 +293,9 @@ public class GraveManager {
     }
 
     public boolean graveExistsLoc(Location loc) {
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT 1 FROM graves WHERE world = ? AND x =? AND y = ? AND z = ?")) {
+        try (Connection conn = databaseProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                    "SELECT 1 FROM graves WHERE world = ? AND x =? AND y = ? AND z = ?")) {
 
             // World
             if (loc.getWorld() == null) {
@@ -355,12 +327,12 @@ public class GraveManager {
 
     public List<String> getGraveNumberList(UUID uuid) {
         List<String> graveNumberList = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT grave_num FROM graves WHERE uuid = ?")) {
+        try (Connection conn = databaseProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT grave_num FROM graves WHERE uuid = ?")) {
             ps.setString(1, uuid.toString());
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 int graveNum = rs.getInt("grave_num");
-
                 graveNumberList.add(String.valueOf(graveNum));
             }
         } catch (SQLException e) {
@@ -377,7 +349,8 @@ public class GraveManager {
         dbWorker.execute(() -> {
             List<String> graveNumberList = new ArrayList<>();
 
-            try (PreparedStatement ps = connection.prepareStatement("SELECT grave_num FROM graves WHERE uuid = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT grave_num FROM graves WHERE uuid = ?")) {
                 ps.setString(1, finalUUID.toString());
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
@@ -402,8 +375,9 @@ public class GraveManager {
         dbWorker.execute(() -> {
             Location graveLocation = null;
 
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ? AND grave_num = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                        "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ? AND grave_num = ?")) {
                 ps.setString(1, finalUUID.toString());
                 ps.setInt(2, finalGraveNum);
                 ResultSet rs = ps.executeQuery();
@@ -436,8 +410,9 @@ public class GraveManager {
         dbWorker.execute(() -> {
             List<Location> graveLocations = new ArrayList<>();
 
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                        "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ?")) {
                 ps.setString(1, finalUUID.toString());
                 ResultSet rs = ps.executeQuery();
 
@@ -470,8 +445,9 @@ public class GraveManager {
         dbWorker.execute(() -> {
             List<Location> graveLocations = new ArrayList<>();
 
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT world, x, y, z, yaw, pitch FROM graves WHERE grave_num = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                        "SELECT world, x, y, z, yaw, pitch FROM graves WHERE grave_num = ?")) {
                 ps.setInt(1, finalGraveNum);
                 ResultSet rs = ps.executeQuery();
 
@@ -503,8 +479,9 @@ public class GraveManager {
         dbWorker.execute(() -> {
             List<Location> graveLocations = new ArrayList<>();
 
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT world, x, y, z, yaw, pitch FROM graves")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                        "SELECT world, x, y, z, yaw, pitch FROM graves")) {
                 ResultSet rs = ps.executeQuery();
 
                 while (rs.next()) {
@@ -533,8 +510,9 @@ public class GraveManager {
         return CompletableFuture.supplyAsync(() -> {
             List<ItemStack> items = new ArrayList<>();
 
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT items FROM graves WHERE uuid = ? AND grave_num = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                        "SELECT items FROM graves WHERE uuid = ? AND grave_num = ?")) {
 
                 ps.setString(1, uuid.toString());
                 ps.setInt(2, graveNum);
@@ -583,8 +561,9 @@ public class GraveManager {
         double y = Math.floor(loc.getY()) + 0.5;
         double z = Math.floor(loc.getZ()) + 0.5;
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT uuid FROM graves WHERE world = ? AND x = ? AND y = ? AND z = ?")) {
+        try (Connection conn = databaseProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                    "SELECT uuid FROM graves WHERE world = ? AND x = ? AND y = ? AND z = ?")) {
             ps.setString(1, worldName);
             ps.setDouble(2, x);
             ps.setDouble(3, y);
@@ -615,8 +594,9 @@ public class GraveManager {
         final double z = Math.floor(loc.getZ()) + 0.5;
 
         dbWorker.execute(() -> {
-            try (PreparedStatement select = connection.prepareStatement(
-                    "SELECT uuid, grave_num, items, xp FROM graves WHERE world = ? AND x = ? AND y = ? AND z = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement select = conn.prepareStatement(
+                        "SELECT uuid, grave_num, items, xp FROM graves WHERE world = ? AND x = ? AND y = ? AND z = ?")) {
 
                 select.setString(1, worldName);
                 select.setDouble(2, x);
@@ -684,7 +664,7 @@ public class GraveManager {
                 });
 
                 // Remove Grave from Database
-                try (PreparedStatement delete = connection.prepareStatement(
+                try (PreparedStatement delete = conn.prepareStatement(
                         "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
                     delete.setString(1, uuid);
                     delete.setInt(2, graveNum);
@@ -727,8 +707,9 @@ public class GraveManager {
                     }
 
                     dbWorker.execute(() -> {
-                        try (PreparedStatement ps = connection.prepareStatement(
-                                "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
+                        try (Connection conn = databaseProvider.getConnection();
+                             PreparedStatement ps = conn.prepareStatement(
+                                    "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
                             ps.setString(1, uuid.toString());
                             ps.setInt(2, graveNum);
                             ps.executeUpdate();
@@ -771,8 +752,9 @@ public class GraveManager {
             });
 
             dbWorker.execute(() -> {
-                try (PreparedStatement ps = connection.prepareStatement(
-                        "DELETE FROM graves WHERE uuid = ?")) {
+                try (Connection conn = databaseProvider.getConnection();
+                     PreparedStatement ps = conn.prepareStatement(
+                            "DELETE FROM graves WHERE uuid = ?")) {
                     ps.setString(1, uuid.toString());
                     ps.executeUpdate();
                 } catch (SQLException e) {
@@ -812,8 +794,9 @@ public class GraveManager {
             });
 
             dbWorker.execute(() -> {
-                try (PreparedStatement ps = connection.prepareStatement(
-                        "DELETE FROM graves WHERE grave_num = ?")) {
+                try (Connection conn = databaseProvider.getConnection();
+                     PreparedStatement ps = conn.prepareStatement(
+                            "DELETE FROM graves WHERE grave_num = ?")) {
                     ps.setInt(1, graveNum);
                     ps.executeUpdate();
                 } catch (SQLException e) {
@@ -853,8 +836,9 @@ public class GraveManager {
             });
 
             dbWorker.execute(() -> {
-                try (PreparedStatement ps = connection.prepareStatement(
-                        "DELETE FROM graves")) {
+                try (Connection conn = databaseProvider.getConnection();
+                     PreparedStatement ps = conn.prepareStatement(
+                            "DELETE FROM graves")) {
                     ps.executeUpdate();
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -895,10 +879,10 @@ public class GraveManager {
 
     public void saveOfflinePlayer(UUID uuid, String playerName) {
         CompletableFuture.runAsync(() -> {
-            try {
+            try (Connection conn = databaseProvider.getConnection()) {
                 // Check If UUID already exists
                 boolean uuidExists = false;
-                PreparedStatement ps1 = connection.prepareStatement(
+                PreparedStatement ps1 = conn.prepareStatement(
                         "SELECT 1 FROM offline_players WHERE uuid = ? LIMIT 1");
                 ps1.setString(1, uuid.toString());
                 ResultSet rs1 = ps1.executeQuery();
@@ -908,7 +892,7 @@ public class GraveManager {
 
                 // Check If the Player Name already exists
                 boolean nameExists = false;
-                PreparedStatement ps2 = connection.prepareStatement(
+                PreparedStatement ps2 = conn.prepareStatement(
                         "SELECT 1 FROM offline_players WHERE plr_name = ? LIMIT 1");
                 ps2.setString(1, playerName);
                 ResultSet rs2 = ps2.executeQuery();
@@ -918,7 +902,7 @@ public class GraveManager {
 
                 // Delete Row with UUID if uuidExists = true
                 if (uuidExists) {
-                    PreparedStatement ps3 = connection.prepareStatement(
+                    PreparedStatement ps3 = conn.prepareStatement(
                             "DELETE FROM offline_players WHERE uuid = ?");
                     ps3.setString(1, uuid.toString());
                     ps3.executeUpdate();
@@ -926,15 +910,14 @@ public class GraveManager {
 
                 // Delete Row with Name if nameExists = true
                 if (nameExists) {
-                    PreparedStatement ps4 = connection.prepareStatement(
+                    PreparedStatement ps4 = conn.prepareStatement(
                             "DELETE FROM offline_players WHERE plr_name = ?");
                     ps4.setString(1, playerName);
                     ps4.executeUpdate();
                 }
 
-                // Insert new UUID and Name
-                PreparedStatement ps5 = connection.prepareStatement(
-                        "REPLACE INTO offline_players(uuid, plr_name) VALUES (?, ?)");
+                // Insert new UUID and Name (using database-specific SQL)
+                PreparedStatement ps5 = conn.prepareStatement(databaseProvider.getInsertOrUpdateOfflinePlayerSQL());
                 ps5.setString(1, uuid.toString());
                 ps5.setString(2, playerName);
                 ps5.executeUpdate();
@@ -946,7 +929,8 @@ public class GraveManager {
 
     public List<String> getOfflinePlayerNameList() {
         List<String> list = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT plr_name FROM offline_players")) {
+        try (Connection conn = databaseProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT DISTINCT plr_name FROM offline_players")) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 String name = rs.getString("plr_name");
@@ -961,7 +945,8 @@ public class GraveManager {
     }
 
     public UUID getOfflinePlayerUUID(String playerName) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM offline_players WHERE plr_name = ?")) {
+        try (Connection conn = databaseProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT uuid FROM offline_players WHERE plr_name = ?")) {
             ps.setString(1, playerName);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -980,7 +965,8 @@ public class GraveManager {
 
     public CompletableFuture<UUID> getOfflinePlayerUUIDAsync(String playerName) {
         return CompletableFuture.supplyAsync(() -> {
-            try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM offline_players WHERE plr_name = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT uuid FROM offline_players WHERE plr_name = ?")) {
                 ps.setString(1, playerName);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
@@ -998,7 +984,8 @@ public class GraveManager {
 
     public CompletableFuture<String> getOfflinePlayerName(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
-            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM offline_players WHERE uuid = ?")) {
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT * FROM offline_players WHERE uuid = ?")) {
                 ps.setString(1, uuid.toString());
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {

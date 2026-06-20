@@ -21,6 +21,25 @@ delete-vanishing-items: false
 non-grave-player-head-water-protection: true
 
 
+# Database Settings
+# Supported database types: sqlite, postgresql
+# Default: sqlite
+database-type: sqlite
+
+# PostgreSQL Connection Settings
+# Only used when database-type is set to 'postgresql'
+postgresql:
+  host: localhost
+  port: 5432
+  database: simplegraves
+  username: simplegraves
+  password: ""
+  pool-settings:
+    maximum-pool-size: 10
+    minimum-idle: 2
+    connection-timeout: 5000
+
+
 # The Config Version
 # Do not change this Value
 config-version: ${project.version}

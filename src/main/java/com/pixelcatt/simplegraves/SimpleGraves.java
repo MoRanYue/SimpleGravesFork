@@ -1,5 +1,9 @@
 package com.pixelcatt.simplegraves;
 
+import com.pixelcatt.simplegraves.database.DatabaseProvider;
+import com.pixelcatt.simplegraves.database.SQLiteDatabaseProvider;
+import com.pixelcatt.simplegraves.database.PostgreSQLDatabaseProvider;
+
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONArray;
@@ -17,6 +21,7 @@ public class SimpleGraves extends JavaPlugin {
 
     private GraveManager manager;
     private DatabaseWorker dbWorker;
+    private DatabaseProvider databaseProvider;
     private MessageManager messageManager;
     private PlayerJoinListener playerJoinListener;
     private PlayerDeathListener playerDeathListener;
@@ -40,13 +45,25 @@ public class SimpleGraves extends JavaPlugin {
         getLogger().info("Initializing Message Manager...");
         messageManager = new MessageManager(this);
 
-        // Initialize Database-Worker
+        // Initialize Database-Worker (async executor)
         getLogger().info("Initializing Database-Worker...");
         dbWorker = new DatabaseWorker();
 
+        // Initialize Database Provider
+        getLogger().info("Initializing Database Provider...");
+        databaseProvider = createDatabaseProvider();
+        try {
+            databaseProvider.initialize(this);
+        } catch (Exception e) {
+            getLogger().severe("Failed to initialize database provider!");
+            e.printStackTrace();
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         // Initialize Grave-Manager
         getLogger().info("Initializing Grave-Manager...");
-        manager = new GraveManager(this, dbWorker);
+        manager = new GraveManager(this, dbWorker, databaseProvider);
 
         // Initialize Event Listeners
         getLogger().info("Initializing Event Listeners...");
@@ -63,6 +80,25 @@ public class SimpleGraves extends JavaPlugin {
         // Check for Updates
         getLogger().info("Checking for Updates...");
         checkForUpdates();
+    }
+
+
+    /**
+     * Create the appropriate {@link DatabaseProvider} based on the
+     * {@code database-type} setting in config.yml.
+     */
+    private DatabaseProvider createDatabaseProvider() {
+        String dbType = getConfig().getString("database-type", "sqlite").toLowerCase();
+
+        switch (dbType) {
+            case "postgresql":
+                getLogger().info("Selected database type: PostgreSQL");
+                return new PostgreSQLDatabaseProvider();
+            case "sqlite":
+            default:
+                getLogger().info("Selected database type: SQLite");
+                return new SQLiteDatabaseProvider();
+        }
     }
 
 
@@ -232,7 +268,12 @@ public class SimpleGraves extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        dbWorker.shutdown();
+        if (databaseProvider != null) {
+            databaseProvider.shutdown();
+        }
+        if (dbWorker != null) {
+            dbWorker.shutdown();
+        }
     }
 
 
