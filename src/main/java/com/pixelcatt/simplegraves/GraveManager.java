@@ -48,6 +48,11 @@ public class GraveManager {
     private final SimpleGraves plugin;
     private final DatabaseProvider databaseProvider;
 
+    /**
+     * Single-thread executor for all database write operations.
+     * {@link Executor#execute(Runnable)} submits the task and returns
+     * immediately — the caller thread is never blocked.
+     */
     public final Executor dbWorker;
 
     private int xpLimit = 910;
