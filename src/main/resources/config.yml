@@ -24,13 +24,6 @@ non-grave-player-head-water-protection: true
 # Use %player% as a placeholder for the Player Name
 grave-block-name: "%player%'s Grave"
 
-# Grave Highlight Settings
-# When enabled, a player's grave will glow when they are nearby.
-grave-highlight:
-  enabled: true
-  # Range in blocks to detect the player (Default: 10)
-  range: 10
-
 
 # Database Settings
 # Supported database types: sqlite, postgresql

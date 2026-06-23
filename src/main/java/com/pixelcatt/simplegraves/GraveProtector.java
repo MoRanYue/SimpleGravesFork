@@ -81,11 +81,9 @@ public class GraveProtector implements Listener {
     }
 
     private boolean isGraveBlock(Block block) {
-        if (manager.graveExistsLoc(block.getLocation())) {
-            return true;
-        }
-
-        return false;
+        // Fast in-memory cache check — avoids expensive DB queries on
+        // high-frequency events (liquid flow, explosions, pistons).
+        return manager.graveExistsLocCached(block.getLocation());
     }
 
 

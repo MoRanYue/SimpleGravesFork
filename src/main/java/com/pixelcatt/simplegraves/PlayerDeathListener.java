@@ -307,6 +307,12 @@ public class PlayerDeathListener implements Listener {
             return false;
         }
 
+        // Reject blocks that are NOT replaceable — placing a head here
+        // would destroy them (rails, redstone, torches, buttons, etc.).
+        if (!type.isAir() && !block.getBlockData().isReplaceable()) {
+            return false;
+        }
+
         // Check if the block below is solid (ground support for the head)
         Block below = block.getRelative(BlockFace.DOWN);
         if (below.getType().isAir()) {

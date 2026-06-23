@@ -28,7 +28,6 @@ public class SimpleGraves extends JavaPlugin {
     private BlockBreakListener blockBreakListener;
     private GraveProtector graveProtector;
     private PlayerRespawnListener playerRespawnListener;
-    private GraveHighlightManager graveHighlightManager;
 
 
     @Override
@@ -66,10 +65,6 @@ public class SimpleGraves extends JavaPlugin {
         getLogger().info("Initializing Grave-Manager...");
         manager = new GraveManager(this, dbWorker, databaseProvider);
 
-        // Initialize Grave-Highlight Manager
-        getLogger().info("Initializing Grave-Highlight Manager...");
-        graveHighlightManager = new GraveHighlightManager(this, manager);
-        graveHighlightManager.start();
 
         // Initialize Event Listeners
         getLogger().info("Initializing Event Listeners...");
@@ -162,14 +157,6 @@ public class SimpleGraves extends JavaPlugin {
         manager.setGraveBlockName(graveBlockName);
         config.set("grave-block-name", graveBlockName);
 
-        // Grave Highlight
-        boolean highlightEnabled = config.getBoolean("grave-highlight.enabled", true);
-        int highlightRange = config.getInt("grave-highlight.range", 10);
-        if (graveHighlightManager != null) {
-            graveHighlightManager.reload(highlightEnabled, highlightRange);
-        }
-        config.set("grave-highlight.enabled", highlightEnabled);
-        config.set("grave-highlight.range", highlightRange);
 
         if ("1.0.0".equals(configVersion) || isNewerVersion(configVersion, "1.0.0")) {
             if (isOlderVersion(configVersion, currentVersion)) {
@@ -185,9 +172,6 @@ public class SimpleGraves extends JavaPlugin {
         saveConfig();
     }
 
-    public GraveHighlightManager getGraveHighlightManager() {
-        return graveHighlightManager;
-    }
 
     public void registerCommands() {
         CommandHandler commandHandler = new CommandHandler(this, this.manager);
@@ -293,9 +277,6 @@ public class SimpleGraves extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (graveHighlightManager != null) {
-            graveHighlightManager.shutdown();
-        }
         if (databaseProvider != null) {
             databaseProvider.shutdown();
         }

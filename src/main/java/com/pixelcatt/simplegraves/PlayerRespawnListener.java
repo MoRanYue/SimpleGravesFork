@@ -174,6 +174,11 @@ public class PlayerRespawnListener implements Listener {
             return false;
         }
 
+        // Reject non-replaceable blocks (rails, redstone, torches, etc.)
+        if (!type.isAir() && !block.getBlockData().isReplaceable()) {
+            return false;
+        }
+
         // Must be air or replaceable (non-solid) block
         return type == org.bukkit.Material.AIR
                 || type == org.bukkit.Material.CAVE_AIR

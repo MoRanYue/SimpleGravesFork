@@ -22,6 +22,8 @@ import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Collections;
 
 
 
@@ -51,6 +53,9 @@ public class GraveManager {
     private int xpLimit = 910;
     private boolean delete_vanishing_items = false;
     private String graveBlockName = "%player%'s Grave";
+
+    /** In-memory cache of active grave locations (thread-safe). */
+    private final Set<Location> graveLocationCache = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
     public GraveManager(SimpleGraves plugin, DatabaseWorker dbWorker, DatabaseProvider databaseProvider) {
@@ -148,6 +153,9 @@ public class GraveManager {
     private void insertGraveAndPlaceBlock(Player player, Location loc, PendingGraveData data) {
         UUID uuid = player.getUniqueId();
         int graveNum = 1;
+
+        // Add to in-memory cache so GraveProtector can find it immediately.
+        graveLocationCache.add(normalizeCacheKey(loc));
 
         // Save Grave in the Database
         try (Connection conn = databaseProvider.getConnection();
@@ -296,6 +304,14 @@ public class GraveManager {
             return false;
 
         }, dbWorker);
+    }
+
+    /**
+     * Fast in-memory check — used by high-frequency paths such as
+     * {@link com.pixelcatt.simplegraves.GraveProtector}.
+     */
+    public boolean graveExistsLocCached(Location loc) {
+        return graveLocationCache.contains(normalizeCacheKey(loc));
     }
 
     public boolean graveExistsLoc(Location loc) {
@@ -669,9 +685,9 @@ public class GraveManager {
                     }
                 });
 
-                // Remove highlight glow stand if active
-                plugin.getGraveHighlightManager().removeGlowAt(
-                        new Location(Bukkit.getWorld(worldName), x, y, z));
+                // Remove from in-memory cache
+                graveLocationCache.remove(normalizeCacheKey(
+                        new Location(Bukkit.getWorld(worldName), x, y, z)));
 
                 // Remove Grave from Database
                 try (PreparedStatement delete = conn.prepareStatement(
@@ -892,49 +908,33 @@ public class GraveManager {
     // ------------------------------------------------------------ \\
 
     public void saveOfflinePlayer(UUID uuid, String playerName) {
-        CompletableFuture.runAsync(() -> {
+        // Run on the single-thread DB executor to eliminate concurrent writes.
+        // Previously used CompletableFuture.runAsync() which ran on the common
+        // ForkJoinPool, allowing multiple threads to INSERT simultaneously and
+        // cause unique-constraint violations on PostgreSQL.
+        dbWorker.execute(() -> {
             try (Connection conn = databaseProvider.getConnection()) {
-                // Check If UUID already exists
-                boolean uuidExists = false;
-                PreparedStatement ps1 = conn.prepareStatement(
-                        "SELECT 1 FROM offline_players WHERE uuid = ? LIMIT 1");
-                ps1.setString(1, uuid.toString());
-                ResultSet rs1 = ps1.executeQuery();
-                if (rs1.next()) {
-                    uuidExists = true;
+                conn.setAutoCommit(false);
+                try {
+                    // Delete any existing row with the same UUID or player name
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "DELETE FROM offline_players WHERE uuid = ? OR plr_name = ?")) {
+                        ps.setString(1, uuid.toString());
+                        ps.setString(2, playerName);
+                        ps.executeUpdate();
+                    }
+                    // Insert the new mapping
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "INSERT INTO offline_players(uuid, plr_name) VALUES (?, ?)")) {
+                        ps.setString(1, uuid.toString());
+                        ps.setString(2, playerName);
+                        ps.executeUpdate();
+                    }
+                    conn.commit();
+                } catch (SQLException e) {
+                    conn.rollback();
+                    throw e;
                 }
-
-                // Check If the Player Name already exists
-                boolean nameExists = false;
-                PreparedStatement ps2 = conn.prepareStatement(
-                        "SELECT 1 FROM offline_players WHERE plr_name = ? LIMIT 1");
-                ps2.setString(1, playerName);
-                ResultSet rs2 = ps2.executeQuery();
-                if (rs2.next()) {
-                    nameExists = true;
-                }
-
-                // Delete Row with UUID if uuidExists = true
-                if (uuidExists) {
-                    PreparedStatement ps3 = conn.prepareStatement(
-                            "DELETE FROM offline_players WHERE uuid = ?");
-                    ps3.setString(1, uuid.toString());
-                    ps3.executeUpdate();
-                }
-
-                // Delete Row with Name if nameExists = true
-                if (nameExists) {
-                    PreparedStatement ps4 = conn.prepareStatement(
-                            "DELETE FROM offline_players WHERE plr_name = ?");
-                    ps4.setString(1, playerName);
-                    ps4.executeUpdate();
-                }
-
-                // Insert new UUID and Name (using database-specific SQL)
-                PreparedStatement ps5 = conn.prepareStatement(databaseProvider.getInsertOrUpdateOfflinePlayerSQL());
-                ps5.setString(1, uuid.toString());
-                ps5.setString(2, playerName);
-                ps5.executeUpdate();
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -1014,5 +1014,15 @@ public class GraveManager {
 
     public void deleteVanishingItems() {
         this.delete_vanishing_items = true;
+    }
+
+    /**
+     * Normalize a location to a cache key (block center coordinates).
+     */
+    private static Location normalizeCacheKey(Location loc) {
+        return new Location(loc.getWorld(),
+                Math.floor(loc.getX()) + 0.5,
+                Math.floor(loc.getY()) + 0.5,
+                Math.floor(loc.getZ()) + 0.5);
     }
 }

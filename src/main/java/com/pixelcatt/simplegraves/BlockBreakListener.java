@@ -35,6 +35,9 @@ public class BlockBreakListener implements Listener {
 
         if (loc.getBlock().getType() == Material.PLAYER_HEAD) {
             if (manager.graveExistsLoc(loc)) {
+                // Prevent the head block itself from dropping as an item
+                event.setDropItems(false);
+
                 if (graveStealing) {
                     manager.breakGrave(loc);
                 } else {
