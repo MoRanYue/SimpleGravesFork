@@ -254,6 +254,9 @@ public class GraveManager {
 
             skull.update();
 
+            // Create waypoint marker for the Player Locator Bar
+            plugin.getWaypointManager().createWaypoint(loc, uuid);
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -500,6 +503,11 @@ public class GraveManager {
         return future;
     }
 
+    /**
+     * Holds a grave location together with its owner UUID.
+     */
+    public record GraveLocationWithOwner(Location location, UUID ownerUuid) {}
+
     public CompletableFuture<List<Location>> getEveryGraveLocation() {
         CompletableFuture<List<Location>> future = new CompletableFuture<>();
 
@@ -528,6 +536,47 @@ public class GraveManager {
             }
 
             FoliaHelper.runGlobal(plugin, () -> future.complete(graveLocations));
+        });
+
+        return future;
+    }
+
+    /**
+     * Get every grave location together with its owner UUID.
+     * Used by {@link GraveWaypointManager#reloadAll()} to populate owner tracking.
+     */
+    public CompletableFuture<List<GraveLocationWithOwner>> getEveryGraveLocationWithOwner() {
+        CompletableFuture<List<GraveLocationWithOwner>> future = new CompletableFuture<>();
+
+        dbWorker.execute(() -> {
+            List<GraveLocationWithOwner> result = new ArrayList<>();
+
+            try (Connection conn = databaseProvider.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                        "SELECT uuid, world, x, y, z, yaw, pitch FROM graves")) {
+                ResultSet rs = ps.executeQuery();
+
+                while (rs.next()) {
+                    String uuidStr = rs.getString("uuid");
+                    if (uuidStr == null) continue;
+
+                    World world = Bukkit.getWorld(rs.getString("world"));
+                    if (world == null) continue;
+
+                    UUID ownerUuid = UUID.fromString(uuidStr);
+                    Location location = new Location(world,
+                            rs.getDouble("x"),
+                            rs.getDouble("y"),
+                            rs.getDouble("z"),
+                            (float) rs.getDouble("yaw"),
+                            (float) rs.getDouble("pitch"));
+                    result.add(new GraveLocationWithOwner(location, ownerUuid));
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+
+            FoliaHelper.runGlobal(plugin, () -> future.complete(result));
         });
 
         return future;
@@ -619,6 +668,9 @@ public class GraveManager {
         final double x = Math.floor(loc.getX()) + 0.5;
         final double y = Math.floor(loc.getY()) + 0.5;
         final double z = Math.floor(loc.getZ()) + 0.5;
+
+        // Remove the waypoint marker from the Locator Bar
+        plugin.getWaypointManager().removeWaypoint(loc);
 
         dbWorker.execute(() -> {
             try (Connection conn = databaseProvider.getConnection();
@@ -757,6 +809,13 @@ public class GraveManager {
         getAllGraveLocations(uuid).thenAccept(graveLocations -> {
             if (graveLocations.isEmpty()) return;
 
+            // Remove waypoint markers first (safe from any thread)
+            for (Location graveLocation : graveLocations) {
+                if (graveLocation != null) {
+                    plugin.getWaypointManager().removeWaypoint(graveLocation);
+                }
+            }
+
             FoliaHelper.runGlobal(plugin, () -> {
                 for (Location graveLocation : graveLocations) {
                     if (graveLocation == null) continue;
@@ -799,6 +858,13 @@ public class GraveManager {
         getAllGraveLocationsWithNumber(graveNum).thenAccept(graveLocations -> {
             if (graveLocations.isEmpty()) return;
 
+            // Remove waypoint markers first
+            for (Location graveLocation : graveLocations) {
+                if (graveLocation != null) {
+                    plugin.getWaypointManager().removeWaypoint(graveLocation);
+                }
+            }
+
             FoliaHelper.runGlobal(plugin, () -> {
                 for (Location graveLocation : graveLocations) {
                     if (graveLocation == null) continue;
@@ -840,6 +906,13 @@ public class GraveManager {
     public void removeEveryGrave() {
         getEveryGraveLocation().thenAccept(graveLocations -> {
             if (graveLocations.isEmpty()) return;
+
+            // Remove waypoint markers first
+            for (Location graveLocation : graveLocations) {
+                if (graveLocation != null) {
+                    plugin.getWaypointManager().removeWaypoint(graveLocation);
+                }
+            }
 
             FoliaHelper.runGlobal(plugin, () -> {
                 for (Location graveLocation : graveLocations) {

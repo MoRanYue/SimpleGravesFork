@@ -25,6 +25,30 @@ non-grave-player-head-water-protection: true
 grave-block-name: "%player%'s Grave"
 
 
+# Grave Locator Bar / Waypoint Settings (Minecraft 1.21.6+)
+# Uses the Player Locator Bar (the bar that normally shows other players)
+# to display a custom marker at each grave location.
+grave-waypoint:
+  # Enable the waypoint marker on the Player Locator Bar (Default: true)
+  # When enabled, each grave will show as a coloured icon on the Locator Bar
+  # of nearby players, helping them find their graves.
+  enabled: true
+
+  # Maximum distance in blocks for the grave waypoint to appear (Default: 50)
+  # The waypoint is only shown when the player is within this range of their grave.
+  # Set to 0 for unlimited range.
+  range: 50
+
+  # Waypoint icon style (Default: "minecraft:bowtie")
+  # Built-in options: "minecraft:default", "minecraft:bowtie"
+  # Custom styles from resource packs can also be used.
+  style: "minecraft:bowtie"
+
+  # Waypoint icon colour in HEX format (Default: "#FFAA00" gold)
+  # Use standard 6-digit hex colour codes.
+  color: "#FFAA00"
+
+
 # Database Settings
 # Supported database types: sqlite, postgresql
 # Default: sqlite

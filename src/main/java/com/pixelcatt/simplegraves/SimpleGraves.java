@@ -4,6 +4,8 @@ import com.pixelcatt.simplegraves.database.DatabaseProvider;
 import com.pixelcatt.simplegraves.database.SQLiteDatabaseProvider;
 import com.pixelcatt.simplegraves.database.PostgreSQLDatabaseProvider;
 
+import net.kyori.adventure.key.Key;
+import org.bukkit.Color;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONArray;
@@ -28,6 +30,7 @@ public class SimpleGraves extends JavaPlugin {
     private BlockBreakListener blockBreakListener;
     private GraveProtector graveProtector;
     private PlayerRespawnListener playerRespawnListener;
+    private GraveWaypointManager waypointManager;
 
 
     @Override
@@ -65,6 +68,10 @@ public class SimpleGraves extends JavaPlugin {
         getLogger().info("Initializing Grave-Manager...");
         manager = new GraveManager(this, dbWorker, databaseProvider);
 
+        // Initialize Grave Waypoint Manager (Locator Bar markers)
+        getLogger().info("Initializing Grave Waypoint Manager...");
+        waypointManager = new GraveWaypointManager(this, manager);
+        waypointManager.init();
 
         // Initialize Event Listeners
         getLogger().info("Initializing Event Listeners...");
@@ -73,6 +80,10 @@ public class SimpleGraves extends JavaPlugin {
         // Load Configuration
         getLogger().info("Loading Configuration...");
         loadConfig();
+
+        // Load all existing grave waypoints after config is ready
+        getLogger().info("Loading Grave Waypoints...");
+        waypointManager.reloadAll();
 
         // Register Commands
         getLogger().info("Registering Commands...");
@@ -157,6 +168,39 @@ public class SimpleGraves extends JavaPlugin {
         manager.setGraveBlockName(graveBlockName);
         config.set("grave-block-name", graveBlockName);
 
+        // Grave Locator Bar / Waypoint Settings
+        boolean waypointEnabled = config.getBoolean("grave-waypoint.enabled", true);
+        waypointManager.setEnabled(waypointEnabled);
+        config.set("grave-waypoint.enabled", waypointEnabled);
+
+        int waypointRange = config.getInt("grave-waypoint.range", 50);
+        if (waypointRange < 0) {
+            getLogger().warning("Configuration Error: \"grave-waypoint.range\" was configured incorrectly and reset to 50.");
+            waypointRange = 50;
+        }
+        waypointManager.setRange(waypointRange);
+        config.set("grave-waypoint.range", waypointRange);
+
+        String waypointStyleStr = config.getString("grave-waypoint.style", "minecraft:bowtie");
+        try {
+            waypointManager.setStyle(Key.key(waypointStyleStr));
+        } catch (Exception e) {
+            getLogger().warning("Invalid grave-waypoint.style: \"" + waypointStyleStr + "\". Using default \"minecraft:bowtie\".");
+            waypointManager.setStyle(Key.key("minecraft:bowtie"));
+            config.set("grave-waypoint.style", "minecraft:bowtie");
+        }
+        config.set("grave-waypoint.style", waypointStyleStr);
+
+        String waypointColorStr = config.getString("grave-waypoint.color", "#FFAA00");
+        try {
+            String hex = waypointColorStr.startsWith("#") ? waypointColorStr.substring(1) : waypointColorStr;
+            waypointManager.setColor(Color.fromRGB(Integer.parseInt(hex, 16)));
+        } catch (Exception e) {
+            getLogger().warning("Invalid grave-waypoint.color: \"" + waypointColorStr + "\". Using default \"#FFAA00\".");
+            waypointManager.setColor(Color.fromRGB(0xFFAA00));
+            config.set("grave-waypoint.color", "#FFAA00");
+        }
+        config.set("grave-waypoint.color", waypointColorStr);
 
         if ("1.0.0".equals(configVersion) || isNewerVersion(configVersion, "1.0.0")) {
             if (isOlderVersion(configVersion, currentVersion)) {
@@ -277,6 +321,9 @@ public class SimpleGraves extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (waypointManager != null) {
+            waypointManager.removeAll();
+        }
         if (databaseProvider != null) {
             databaseProvider.shutdown();
         }
@@ -299,5 +346,9 @@ public class SimpleGraves extends JavaPlugin {
 
     public PlayerDeathListener getPlayerDeathListener() {
         return playerDeathListener;
+    }
+
+    public GraveWaypointManager getWaypointManager() {
+        return waypointManager;
     }
 }
